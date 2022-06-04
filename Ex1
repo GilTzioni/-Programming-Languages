@@ -1,0 +1,242 @@
+#lang pl
+;;Q1
+#|
+Function "min&max" consumes a sequence of 5 numbers
+and returns a (Listof Number) which contains the minimum and maximum between
+the 5 numbers.
+This method sends the five numbers as a list to the helped function of minimum and maximum.
+|#
+
+(: min&max : Number Number Number Number Number -> (Listof Number))
+(define (min&max n1 n2 n3 n4 n5)
+  (list (minimum (list n1 n2 n3 n4 n5) n1) (maximum (list n1 n2 n3 n4 n5) n1))
+  )
+#|
+Helped function "minimum" consumes a (Listof Number) "lst", number "min",
+and returns the minimum number from the list.
+This method checks that the first number of the list is smaller than min.
+if the first number is smaller than min,
+recursive call with the rest to the "lst" with the first number of the list
+Otherwise, recursive call with the rest to the "lst" and min.
+|#
+(: minimum : (Listof Number) Number -> Number)
+(define (minimum lst min)
+  (cond
+       [(null? lst) min]
+       [(< (first lst) min) (minimum (rest lst) (first lst))]
+       [else (minimum (rest lst) min)]
+  
+  ))
+#|
+Helped function "maximum" consumes a (Listof Number) "lst", number "max",
+and returns the maximum number from the list.
+This method checks that the first number of the list is bigger than max.
+if the first number is bigger than max,
+recursive call with the rest to the "lst" with the first number of the list
+Otherwise, recursive call with the rest to the "lst" and max.
+|#
+(: maximum : (Listof Number) Number -> Number)
+(define (maximum lst max)
+   (cond
+       [(null? lst) max]
+       [(> (first lst) max) (maximum (rest lst) (first lst))]
+       [else (maximum (rest lst) max)]
+  
+  ))
+(test (min&max 2 3 2 7 5) => '(2 7))
+(test (min&max 0.9 3 2 7 5) => '(0.9 7))
+(test (min&max 0.9 0.3 7.8 7.9 5) => '(0.3 7.9))
+(test (min&max 0 -2 -1 -1 100) => '(-2 100))
+(test (min&max -1 -1 -1 -1 -1) => '(-1 -1))
+(test (min&max 100 0 100 7 5) => '(0 100))
+
+;;Q2a
+#|
+Function "sublist-numbers" consumes a (Listof Any) "lst"
+and returns a Listof Number which contains
+all of the numbers from the list we received.  
+This method uses the helped function "sublist-numbers-help"
+which consumes the "lst" and an empty list,
+and returns the list of numbers or null.
+|#
+(: sublist-numbers : (Listof Any) -> (Listof Number))
+(define (sublist-numbers lst)
+  (cond 
+       [(null? lst) null]
+       [(equal? (andmap number? lst) #t) (filter number? lst)]; Checks if lst is a list of numbers, then converts it to (Listof Any) and returns it.
+       [else (sublist-numbers-help lst (list ))]
+   ))
+
+
+#|
+A tail recursive Function "sublist-numbers-help" consumes a (Listof Any) and (Listof Number),
+and returns a (Listof Number) which contains 
+all of the numbers from the list we received.
+|#
+(: sublist-numbers-help : (Listof Any) (Listof Number) -> (Listof Number))
+(define (sublist-numbers-help lst ans)
+  (cond
+       [(null? lst) ans] ; Check if the list is empty.
+       [(equal? (number? (first lst)) #f) (sublist-numbers-help (rest lst) ans)]; Check if the first object in the list is a number.
+       [else (sublist-numbers-help (rest lst) (append (filter number? (list (first lst))) ans))]; Recursive call with the rest to the "lst" and "ans".
+   ))
+
+;;Tests for 2.a
+(test (sublist-numbers (list 'any "Benny" 10 'OP 8))
+ => '(8 10))
+(test (sublist-numbers '(any "Benny" OP (2 3)))
+ => null)
+(test (sublist-numbers '(any "Benny" OP 4 (2 3)))
+ => '(4))
+(test (sublist-numbers (list 1 44 10 9 3 8))
+ => '(1 44 10 9 3 8))
+(test (sublist-numbers (list ))
+ => null)
+(test (sublist-numbers null)
+ => null)
+(test (sublist-numbers (list "ddz" 'f "fdsf"))
+ => null)
+
+
+;;Q2b
+#|
+A recursive function "min&max-lists" consumes a (Listof (Listof Any))
+and returns a list of lists such that for each inner list lst (in the original list) the following is done
+– 1. If lst contains at least one number, then lst is replaced with a list of size
+two, containing the minimum and maximum in lst, and
+2. Otherwise, lst is replaced with a null.
+"min&max-lists" sends the first list to the "sublist-numbers"
+and checks whether it returns a list of numbers,
+if so the helped function "min&max-lists-help" consumes a first list from "lst"
+which is converted to a (Listof Number) and will return a list of minimum and maximum from the list.
+Otherwise, Recursive call whith the rest to the "lst"
+|#
+(: min&max-lists : (Listof (Listof Any)) -> (Listof (Listof Any)))
+(define (min&max-lists lst) 
+  (cond
+       [(null? lst) '()]
+       [(null? (sublist-numbers (first lst))) (append (list (list )) (min&max-lists(rest lst)))]
+       [else (cons ( min&max-lists-help (filter number? (first lst))) (min&max-lists (rest lst)))]
+  ))
+#|
+Helped function "min&max-lists-help" consumes a (Listof Number) "lst"
+and returns a list of minimum and maximum from "lst".
+This method uses tow helped functions "minimum" and "maximum".
+|#
+(: min&max-lists-help : (Listof Number) -> (Listof Number))
+(define (min&max-lists-help lst)
+  (list (minimum (rest lst) (first lst)) (maximum (rest lst) (first lst)))
+  )
+
+;;Tests for 2.b
+(test (min&max-lists '((any "Benny" 10 OP 8) (any "Benny" OP (2 3))))
+ => '((8 10) ()))
+(test (min&max-lists '((2 5 1 5 L) (4 5 6 7 3 2 1) ()))
+ => '((1 5) (1 7) ()))
+(test (min&max-lists '((any "Benny" OP) (any "Benny" OP (2 3))))
+ => '(() ()))
+(test (min&max-lists '((2 5 1 5 2 1) (4 100 0 6 -1 3 2 1) ()))
+ => '((1 5) (-1 100) ()))
+(test (min&max-lists '((1) ("dks" 'f (1 3 4))))
+ => '((1 1) ()))
+(test (min&max-lists '((0 "3" "sdf" 'e) (0 "3" "sdf" '0 0)))
+ => '((0 0) (0 0)))
+(test (min&max-lists '((-2 1 -3 2 5) (4 4 0 6 5 2) (6 4 0 5 2)))
+ => '((-3 5) (0 6) (0 6)))
+(test (min&max-lists '((any "Benny" 10 OP 8 13) (any -2 10 OP 8 -13 12)))
+ => '((8 13) (-13 12)))
+(test (min&max-lists '((any "Benny" O) (any OP (8 -1 "4"))))
+ => '(() ()))
+(test (min&max-lists '(()))
+ => '(()))
+(test (min&max-lists '((1 2 3)))
+ => '((1 3)))
+(test (min&max-lists null)
+ => null)
+;;Q3
+(define-type KeyStack
+[EmptyKS]
+[Push Symbol String KeyStack]) ;;A constructor named Push that accepts symbol string and KeyStack
+#|
+Function "search-stack" consumes a keyStack symbol and object.
+If the object is EmptyKS, returns false
+Otherwise, it is of the Push type
+This method send it to an helped function that will return the value of the symbol if it is in the keystack
+And if not, this method send the keyStack that is in push and if finally we do not find the symbol
+then returns false
+|# 
+(: search-stack : Symbol KeyStack -> (U String #f))
+(define (search-stack s ks)
+  (cases ks
+    [(EmptyKS) #f]
+    [(Push x y z) 
+   (if (equal? (search-stack-help s ks) #f)
+      (cases ks
+       [(Push n w x) (search-stack s x)]
+       [(EmptyKS) #f]
+   )
+      (search-stack-help s ks)
+  
+  )]))
+#|
+ helped function that receives a symbol and a KeyStack object
+ If the Push object is sent to the function that checks whether the symbol we received from the function appears inside Push,
+ if the symbol appears inside the object, the function returns its value and if not returns false.
+|#  
+(: search-stack-help : Symbol KeyStack -> (U String #f))
+(define (search-stack-help s ks)
+  (cases ks
+     [(Push n w t) (The-appropriate-key n w s)]
+     [else #f]
+  ))
+#|
+Function "The-appropriate-key" consumes a string and two symbols.
+If the symbols are equal, returns the string
+Otherwise, returns false. 
+|# 
+(: The-appropriate-key : Symbol String Symbol -> (U String #f))
+(define (The-appropriate-key key val s)
+  (cond
+   [(equal? key s) val]
+   [else #f]
+
+   ))
+#|
+Function "pop-stack" consumes a keyed-stack object,
+and uses the "cases" function to check if it is a Push object,
+then returns it without the first value.
+Otherwise it is of the EmptyKS type
+i.e. an empty constructor and then returns false.
+|#    
+(: pop-stack : KeyStack -> (U KeyStack #f))
+(define (pop-stack ks)
+  (cases ks
+     [(Push n w t) t]
+     [else #f]
+  ))
+(test (EmptyKS) => (EmptyKS))
+(test (Push 'b "B" (Push 'a "A" (EmptyKS)))
+      => (Push 'b "B" (Push 'a "A" (EmptyKS))))
+(test (Push 'b "B" (EmptyKS))
+      => (Push 'b "B" (EmptyKS)))
+(test (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS))))
+      => (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS)))))
+(test (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (Push 'b "B" (Push 'a "A" (EmptyKS))))))
+      => (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (Push 'b "B" (Push 'a "A" (EmptyKS)))))))
+(test (search-stack 'a (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS)))))
+      => "AAA")
+(test (search-stack 't (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS)))))
+      => #f)
+(test (search-stack 'a (Push 'b "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS)))))
+      => "A")
+(test (search-stack 'a (Push 'b "AAA" (Push 'b "B" (Push 'g "A" (Push 'b "B" (Push 'a "hi" (EmptyKS)))))))
+      => "hi")
+(test (search-stack 'c (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS)))))
+      => #f)
+(test (pop-stack (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS)))))
+      => (Push 'b "B" (Push 'a "A" (EmptyKS))))
+(test (pop-stack (Push 'a "AAA" (Push 'b "B" (Push 'a "A" (EmptyKS)))))
+      => (Push 'b "B" (Push 'a "A" (EmptyKS))))
+(test (pop-stack (EmptyKS))
+      => #f)
+
