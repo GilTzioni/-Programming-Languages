@@ -1,0 +1,169 @@
+ #lang pl
+#|
+Question 1 - Extending the AE language:
+_____________________________________________________________________________________________________________________________________________
+
+  BNF for the AE language:
+ <AE> ::= <num>
+ | { <AE> <AE> + }
+ | { <AE> <AE> - }
+ | { <AE> <AE> * }
+ | { <AE> <AE> / }
+ | { <AE> <AE> power }
+ | { <AE>  sqr }
+|# ;; AE abstract syntax trees
+ (define-type AE
+ [Num Number]
+ [Add AE AE]
+ [Sub AE AE]
+ [Mul AE AE]
+ [Div AE AE]
+ [Power AE AE] 
+ [Sqr AE])
+ (: parse-sexpr : Sexpr -> AE)
+ ;; to convert s-expressions into AEs
+ (define (parse-sexpr sexpr)
+ (match sexpr
+ [(number: n) (Num n)]
+ [(list lhs rhs '+)
+(Add (parse-sexpr lhs) (parse-sexpr rhs))]
+ [(list lhs rhs '-)
+(Sub (parse-sexpr lhs) (parse-sexpr rhs))] 
+ [(list lhs rhs '*)
+(Mul (parse-sexpr lhs) (parse-sexpr rhs))]
+ [(list lhs rhs  '/)
+(Div (parse-sexpr lhs) (parse-sexpr rhs))]
+ [(list l r 'power)
+(Power (parse-sexpr l) (parse-sexpr r))]
+ [(list x 'sqr)
+(Sqr (parse-sexpr x))]
+ [else
+(error 'parse-sexpr "bad syntax in ~s" sexpr)]))
+ (: parse : String -> AE)
+ ;; parses a string containing an AE expression to AE AST
+ (define (parse str)
+ (parse-sexpr (string->sexpr str)))
+ (: eval : AE -> Number)
+ ;; consumes an AE and computes the corresponding number
+ (define (eval expr)
+ (cases expr
+ [(Num n) n]
+ [(Add l r) (+ (eval l) (eval r))]
+ [(Sub l r) (- (eval l) (eval r))]
+ [(Mul l r) (* (eval l) (eval r))]
+ [(Div l r) (/ (eval l) (eval r))]
+ [(Power l r)  (cond
+                  [(and (equal? (number? (eval l)) #t) (equal? (number? (eval r)) #t)) (cond
+                                                                                         [(equal? (power (eval l) (eval r)) #f) (error 'eval "eval: power expects an integer power, got")]
+                                                                                         [else (first (filter number? (list (power (eval l) (eval r)))))])]
+                  [else (error 'eval "eval: power expects an integer power, got")])]
+ [(Sqr l) (cond
+              [(number? (eval l)) (* (eval l) (eval l))]
+              [else (error 'eval "bad syntax in ~s" expr)])])) 
+ 
+(: power : Number Number -> (U Number #f))
+(define (power x y)
+  (cond
+    [(integer? y) (power_function_help x y)]
+    [else #f]))
+
+(: power_function_help : Number Number -> Number)
+(define (power_function_help x y)
+  (cond
+    [(zero? y) 1]
+    [else (* x (power_function_help x (- y 1)))]))
+
+ (: run : String -> Number)  
+;;evaluate an AE program contained in a string
+ (define (run str)
+ (eval (parse str)))
+ ;; tests
+ (test (run "3") => 3)
+ (test (run "{3 4 +}") => 7)
+ (test (run "{{3 4 -} 7 +}") => 6)
+(test (run "3") => 3) 
+ (test (run "{3 4 +}") => 7)
+ (test (run "{{3 4 -} 7 +}") => 6)
+ (test (run "{{3 4 power} 7 +}") => 88)
+ (test (run "{{2 4 power} {5 sqr} +}") => 41)
+ (test (run "{{2 4/5 power} {5 sqr} +}")
+  =error> "eval: power expects an integer power, got")
+#|
+Question 2 - Interpreter for the LE language:
+_____________________________________________________________________________________________________________________________________________
+ the BNF:
+
+<LE> ::= {<num>}                                      (1)                                           
+         |{list <LE...>}                              (2)                                         
+         |{cons <LE> <list>}                          (3)
+         |{append <list...>}                          (4)                      
+         |{' <sym>}                                   (5)
+         |{<null>}                                    (6)
+         |{<sym>}                                     (7)
+                         
+|#
+
+;; LE abstract syntax trees
+(define-type LE
+  [le (U LIST ATOM)])
+;; LIST abstract syntax trees
+(define-type LIST
+  [L (Listof LE)])
+;; ATOM abstract syntax trees
+(define-type ATOM
+ [num Number]
+ [Sym Symbol]
+ [my_list LIST]
+ [Cons ATOM list]
+ [Append LIST]
+ [Quote Symbol])
+
+ (: parse-sexpr->LEs : (Listof Sexpr) -> (Listof LE))
+ ;; converts a list of s-expressions into a list of LEs
+ (define (parse-sexpr->LEs sexprs)
+   (map parse-sexprLE sexprs))
+
+
+(: parse-sexpr->LISTs : (Listof Sexpr) -> (Listof LIST))
+;; converts a list of s-exprs into a list of LISTs
+ (define (parse-sexpr->LISTs sexprs)
+   (cond
+     [(null? sexprs) null]
+     [else (list (parse-sexpr->LIST (first sexprs)) (parse-sexpr->LIST (rest sexprs)))]))
+
+(: parse-sexpr->LIST : Sexpr -> (U LIST #f))
+ (define (parse-sexpr->LIST sexpr)
+   (if (LIST? (parse-sexprLE sexpr)) (parse-sexprLE sexpr) #f))
+  
+
+(: parse-sexprLE : Sexpr -> LE)
+;; to convert s-expressions into LEs
+(define (parse-sexprLE sexpr)
+  (match sexpr
+    [(number: n) (num n)]
+   ; ['null <<--fill in-->>]
+    [(symbol: s) (Sym s)]
+    [(cons 'Cons more)
+      (match sexpr
+        [(list 'Cons (list (ATOM: a)) l)
+        (Cons (parse-sexprLE a) (parse-sexprLE l))]
+        [else (error 'Cons "bad syntax in ~s" sexpr)])]
+    [(cons "'" x)
+     (match sexpr
+        [(list "'" (symbol: a)) (Quote a)]
+        [else (error 'Quote "bad syntax in ~s" sexpr)])]
+    [(list 'list n) (my_list (parse-sexpr->LIST n))]
+    [(cons 'append lists)
+     (match sexpr
+        [(list 'append l) (Append (parse-sexpr->LISTs l))]
+        [else (error 'Append "bad syntax in ~s" sexpr)])]
+    [else (error 'parse-sexprLE "bad syntax in ~s" sexpr)]))
+
+(: parseLE : String -> LE)
+ ;; parses a string containing a LE expression to a LE AST
+(define (parseLE str)
+  (parse-sexprLE (string->sexpr str)))
+   
+;; tests
+ (test ((parseLE"{append {list 1 2} {list 3 4} {list 5 6}}"))
+      => (Append (list 1 2) (list 3 4) (list 5 6)))
